@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-deep: #0b1026;
+  --bg-panel: #151b3b;
+  --accent-violet: #8b5cf6;
+  --accent-cyan: #22d3ee;
+  --accent-coral: #fb7185;
+  --accent-amber: #fbbf24;
+  --accent-mint: #34d399;
+  --text-primary: #f1f5f9;
+  --text-muted: #94a3b8;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-deep text-ink font-body antialiased;
+  line-height: 1.7;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------- gradient headline ---------- */
+.gradient-text {
+  background: linear-gradient(90deg, var(--accent-violet), var(--accent-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- starfield + grid background (CSS only) ---------- */
+.star-grid {
+  background-image:
+    linear-gradient(rgba(139, 92, 246, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.06) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 78%);
+}
+
+.star-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.anim-twinkle {
+  animation: twinkle 4.5s ease-in-out infinite;
+}
+.anim-twinkle-slow {
+  animation: twinkle 7s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+/* ---------- game HUD bits ---------- */
+@keyframes blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.anim-blink {
+  animation: blink 1.2s step-end infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.anim-shimmer {
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+  }
+}
+
+.anim-pulse-glow {
+  animation: pulse-glow 2.2s ease-out infinite;
+}
+
+@keyframes pulse-glow-cyan {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(34, 211, 238, 0);
+  }
+}
+
+.anim-pulse-glow-cyan {
+  animation: pulse-glow-cyan 2.2s ease-out infinite;
+}
+
+/* ---------- reduced motion: kill every decorative animation ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .anim-twinkle,
+  .anim-twinkle-slow,
+  .anim-blink,
+  .anim-shimmer,
+  .anim-pulse-glow,
+  .anim-pulse-glow-cyan {
+    animation: none !important;
+  }
+}

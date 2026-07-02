@@ -1,0 +1,11 @@
+node_modules
+dist
+*.local
+.DS_Store
+
+# local tooling
+.claude/
+
+# private reference docs — not for the public repo
+portfolio-build-plan.md
+README.md
