@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import {
   motion,
   useAnimationFrame,
@@ -105,6 +105,55 @@ export default function WorldMap() {
   function onPointerLeave() {
     px.set(0)
     py.set(0)
+  }
+
+  // Gyroscope tilt for touch devices (WhatsApp-wallpaper style): device
+  // orientation drives the same px/py springs the cursor uses on desktop.
+  // The baseline drifts slowly toward the current reading, so however the
+  // phone is held becomes "neutral" and tilting away from it moves the map.
+  // 'ask' = iOS, which only exposes the sensor after a user-gesture prompt.
+  const [gyro, setGyro] = useState<'none' | 'ask' | 'on'>('none')
+  const gyroBase = useRef<{ beta: number; gamma: number } | null>(null)
+  const detachRef = useRef<(() => void) | null>(null)
+  const GYRO_RANGE = 16 // degrees of device tilt for full parallax
+
+  const attachGyro = useCallback(() => {
+    const onOrient = (e: DeviceOrientationEvent) => {
+      if (e.beta == null || e.gamma == null) return
+      const base = (gyroBase.current ??= { beta: e.beta, gamma: e.gamma })
+      base.beta += (e.beta - base.beta) * 0.008
+      base.gamma += (e.gamma - base.gamma) * 0.008
+      py.set(Math.max(-0.5, Math.min(0.5, (e.beta - base.beta) / (GYRO_RANGE * 2))))
+      px.set(Math.max(-0.5, Math.min(0.5, (e.gamma - base.gamma) / (GYRO_RANGE * 2))))
+      setGyro('on')
+    }
+    window.addEventListener('deviceorientation', onOrient)
+    const detach = () => window.removeEventListener('deviceorientation', onOrient)
+    detachRef.current = detach
+    return detach
+  }, [px, py])
+
+  useEffect(() => {
+    if (reduced || typeof window === 'undefined') return
+    if (!('DeviceOrientationEvent' in window)) return
+    if (!window.matchMedia('(hover: none)').matches) return // touch devices only
+    const DOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }
+    if (typeof DOE.requestPermission === 'function') {
+      setGyro('ask')
+      return () => detachRef.current?.()
+    }
+    return attachGyro()
+  }, [reduced, attachGyro])
+
+  async function enableGyro() {
+    try {
+      const DOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }
+      const res = await DOE.requestPermission?.()
+      if (res === 'granted') attachGyro()
+      else setGyro('none')
+    } catch {
+      setGyro('none')
+    }
   }
 
   // Measure the route once, then reveal it with a dashoffset-animated mask —
@@ -484,9 +533,19 @@ export default function WorldMap() {
           {reduced ? 'TRAIN + BUS + FLIGHT · NALHATI TO BENGALURU' : 'CALCULATING ROUTE…'}
         </p>
         {!reduced && (
-          <p className="relative hidden text-center font-mono text-[8px] tracking-[0.3em] text-ink-muted/60 sm:block">
-            ✦ MOVE CURSOR TO TILT THE MAP ✦
-          </p>
+          <div className="relative text-center font-mono text-[8px] tracking-[0.3em] text-ink-muted/60">
+            <p className="hidden [@media(hover:hover)]:block">✦ MOVE CURSOR TO TILT THE MAP ✦</p>
+            {gyro === 'on' && <p className="[@media(hover:hover)]:hidden">✦ TILT YOUR PHONE TO MOVE THE MAP ✦</p>}
+            {gyro === 'ask' && (
+              <button
+                type="button"
+                onClick={enableGyro}
+                className="mt-0.5 rounded border border-accent-cyan/40 px-2 py-1 tracking-[0.25em] text-accent-cyan [@media(hover:hover)]:hidden"
+              >
+                ◈ TAP TO ENABLE 3D TILT
+              </button>
+            )}
+          </div>
         )}
 
         {/* Waypoint legend with transport connectors (always visible) */}
