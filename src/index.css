@@ -142,6 +142,18 @@ body {
   animation: pulse-glow-cyan 2.2s ease-out infinite;
 }
 
+/* Marching-ants energy flow along the world-map route. -264 is the LCM of the
+   three legs' dash periods (8, 5.5, 12), so the loop restarts seamlessly. */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -264;
+  }
+}
+
+.anim-dash-flow {
+  animation: dash-flow 13.2s linear infinite;
+}
+
 /* ---------- reduced motion: kill every decorative animation ---------- */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -152,7 +164,8 @@ body {
   .anim-blink,
   .anim-shimmer,
   .anim-pulse-glow,
-  .anim-pulse-glow-cyan {
+  .anim-pulse-glow-cyan,
+  .anim-dash-flow {
     animation: none !important;
   }
 }

@@ -1,5 +1,14 @@
-import { Fragment, useLayoutEffect, useRef, useState } from 'react'
-import { motion, useAnimationFrame, useInView, useReducedMotion } from 'framer-motion'
+import { Fragment, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+import {
+  motion,
+  useAnimationFrame,
+  useInView,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+} from 'framer-motion'
+import { Bus, Plane, TrainFront, type LucideIcon } from 'lucide-react'
 import { worldMap, type Accent } from '../content'
 
 const accentHex: Record<Accent, string> = {
@@ -30,6 +39,8 @@ const TRAVEL_ROUTE = 'M278 213 L289 232 L282 243 C 255 297, 200 345, 155 385'
 
 type Mode = 'TRAIN' | 'BUS' | 'FLIGHT'
 
+const MODE_ICON: Record<Mode, LucideIcon> = { TRAIN: TrainFront, BUS: Bus, FLIGHT: Plane }
+
 // The three real-life legs of that route, each with its own transport mode.
 // `ms` is the leg's share of the vehicle animation — the short train/bus hops
 // get real screen time instead of flashing past at route-constant speed.
@@ -55,60 +66,46 @@ const LOCKED_ZONES = [
 
 // On-map name offsets for the journey waypoints (legend carries the details).
 const WP_LABELS: Record<string, { dx: number; dy: number; anchor?: 'end' }> = {
-  'NALHATI, WB': { dx: 8, dy: -1 },
-  'BARASAT, WB': { dx: 9, dy: 4 },
-  'KOLKATA, WB': { dx: 8, dy: 11 },
-  'BENGALURU, KA': { dx: -10, dy: 4, anchor: 'end' },
+  'NALHATI, WB': { dx: 10, dy: -1 },
+  'BARASAT, WB': { dx: 11, dy: 4 },
+  'KOLKATA, WB': { dx: 10, dy: 12 },
+  'BENGALURU, KA': { dx: -12, dy: 4, anchor: 'end' },
 }
 
 const MONO = '"JetBrains Mono", ui-monospace, monospace'
+const VIEWBOX = '30 5 370 465'
 
-// Material Symbols "flight" silhouette (24×24, pointing up) — rotated along
-// the route tangent so the plane always flies where it's headed.
-const FLIGHT_ICON =
-  'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z'
-
-// Hand-drawn mini vehicle glyphs (currentColor on dark), centered at origin.
-function VehicleGlyph({ mode }: { mode: Mode }) {
-  if (mode === 'TRAIN')
-    return (
-      <g fill="currentColor">
-        <path d="M0 -8.8 L0 -7.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        <rect x="-5" y="-7.4" width="10" height="11.4" rx="2.5" />
-        <rect x="-3.4" y="-5.4" width="6.8" height="4" rx="1" fill="#0B1026" />
-        <circle cx="-2.6" cy="1.7" r="1.1" fill="#0B1026" />
-        <circle cx="2.6" cy="1.7" r="1.1" fill="#0B1026" />
-        <path
-          d="M-4.6 4 L-6.2 6.6 M4.6 4 L6.2 6.6"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          fill="none"
-        />
-      </g>
-    )
-  if (mode === 'BUS')
-    return (
-      <g fill="currentColor">
-        <rect x="-5.5" y="-7" width="11" height="11.5" rx="2" />
-        <rect x="-4" y="-5" width="8" height="4" rx="0.8" fill="#0B1026" />
-        <circle cx="-3.2" cy="1.9" r="1" fill="#0B1026" />
-        <circle cx="3.2" cy="1.9" r="1" fill="#0B1026" />
-        <circle cx="-3.1" cy="6" r="1.7" />
-        <circle cx="3.1" cy="6" r="1.7" />
-      </g>
-    )
-  return (
-    <g transform="scale(0.62) translate(-12 -12)">
-      <path d={FLIGHT_ICON} fill="currentColor" />
-    </g>
-  )
-}
+// The scene is built from stacked SVG layers lifted to different translateZ
+// heights inside one preserve-3d space — the route hovers above the landmass
+// like a hologram, and mouse tilt makes the layers parallax apart.
+const Z_LAND = 22
+const Z_ROUTE = 40
+const Z_SKY = 70
 
 export default function WorldMap() {
   const reduced = useReducedMotion()
   const panelRef = useRef<HTMLDivElement>(null)
   const inView = useInView(panelRef, { once: true, amount: 0.3 })
+
+  // Interactive tilt: normalized cursor position drives spring-smoothed
+  // rotation. At rest the scene sits at the isometric midpoint (26°, 0°).
+  const px = useMotionValue(0)
+  const py = useMotionValue(0)
+  const spring = { stiffness: 110, damping: 16, mass: 0.4 }
+  const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [34, 18]), spring)
+  const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-11, 11]), spring)
+
+  function onPointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (reduced || e.pointerType === 'touch') return
+    const r = panelRef.current?.getBoundingClientRect()
+    if (!r) return
+    px.set((e.clientX - r.left) / r.width - 0.5)
+    py.set((e.clientY - r.top) / r.height - 0.5)
+  }
+  function onPointerLeave() {
+    px.set(0)
+    py.set(0)
+  }
 
   // Measure the route once, then reveal it with a dashoffset-animated mask —
   // keeps the dotted styling and works reliably on every mobile engine.
@@ -126,6 +123,7 @@ export default function WorldMap() {
   // Vehicle + caption are driven imperatively (no re-renders at 60fps):
   // travel the three legs on their own clocks, rest at Bengaluru, respawn.
   const vehicleRef = useRef<SVGGElement>(null)
+  const trailRef = useRef<SVGPathElement>(null)
   const modeRefs = useRef<Record<Mode, SVGGElement | null>>({
     TRAIN: null,
     BUS: null,
@@ -166,6 +164,9 @@ export default function WorldMap() {
     vehicle.setAttribute('transform', `translate(${pt.x} ${pt.y})`)
     if (vehicle.style.opacity !== '1') vehicle.style.opacity = '1'
 
+    // Solid energy trail fills in behind the vehicle over the dotted legs.
+    trailRef.current?.setAttribute('stroke-dasharray', `${dist} 10000`)
+
     // Show only the active vehicle; keep the plane nosed along its heading.
     for (const m of Object.keys(modeRefs.current) as Mode[]) {
       const g = modeRefs.current[m]
@@ -175,7 +176,8 @@ export default function WorldMap() {
       const ahead = route.getPointAtLength(Math.min(routeLen, dist + 2))
       const behind = route.getPointAtLength(Math.max(0, dist - 2))
       const angle = (Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180) / Math.PI
-      modeRefs.current.FLIGHT?.setAttribute('transform', `rotate(${angle + 90})`)
+      // Lucide's plane glyph points north-east, i.e. 45° ahead of the tangent.
+      modeRefs.current.FLIGHT?.setAttribute('transform', `rotate(${angle + 45})`)
     }
 
     const cap = captionRef.current
@@ -184,196 +186,294 @@ export default function WorldMap() {
 
   return (
     <div className="mx-auto mb-20 max-w-xl">
-      <div ref={panelRef} className="relative overflow-hidden rounded-xl border border-white/10 bg-panel p-4">
-        <div aria-hidden className="star-grid pointer-events-none absolute inset-0" />
+      <div
+        ref={panelRef}
+        onPointerMove={onPointerMove}
+        onPointerLeave={onPointerLeave}
+        className="relative rounded-xl border border-white/10 bg-panel p-4"
+      >
+        <div aria-hidden className="star-grid pointer-events-none absolute inset-0 rounded-xl" />
         <p className="relative mb-2 text-center font-mono text-[10px] tracking-[0.3em] text-ink-muted">
           FAST TRAVEL — WORLD MAP
         </p>
 
-        {/* Floating-island wrapper: gentle bob + perspective tilt on the map */}
+        {/* Floating-island wrapper: gentle bob, then the interactive 3D scene */}
         <motion.div
-          className="relative"
           animate={reduced ? undefined : { y: [0, -5, 0] }}
           transition={{ repeat: Infinity, duration: 7, ease: 'easeInOut' }}
+          style={{ perspective: 1200 }}
         >
-          <svg
-            viewBox="30 5 370 465"
-            className="relative mx-auto max-h-[340px] w-full [transform:perspective(1100px)_rotateX(14deg)]"
+          <motion.div
             role="img"
-            aria-label="Stylized map of India showing the journey from Nalhati to Barasat by train, Barasat to Kolkata by bus, and Kolkata to Bengaluru by flight"
+            aria-label="Stylized 3D map of India showing the journey from Nalhati to Barasat by train, Barasat to Kolkata by bus, and Kolkata to Bengaluru by flight"
+            className="relative mx-auto aspect-[370/465] w-full max-w-[320px]"
+            style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
           >
-            <defs>
-              <linearGradient id="route-grad" x1="278" y1="213" x2="155" y2="385" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#8B5CF6" />
-                <stop offset="100%" stopColor="#22D3EE" />
-              </linearGradient>
-              <linearGradient id="land-grad" x1="0" y1="20" x2="0" y2="460" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="rgba(139,92,246,0.14)" />
-                <stop offset="100%" stopColor="rgba(34,211,238,0.05)" />
-              </linearGradient>
-              <radialGradient id="island-shadow" cx="0.5" cy="0.5" r="0.5">
-                <stop offset="0%" stopColor="rgba(0,0,0,0.55)" />
-                <stop offset="100%" stopColor="rgba(0,0,0,0)" />
-              </radialGradient>
-              <clipPath id="india-clip">
-                <path d={INDIA_OUTLINE} />
-              </clipPath>
-              <pattern id="map-dots" width="11" height="11" patternUnits="userSpaceOnUse">
-                <circle cx="1.2" cy="1.2" r="0.9" fill="rgba(139,92,246,0.14)" />
-              </pattern>
-              <mask id="route-mask" maskUnits="userSpaceOnUse">
-                <motion.path
-                  d={TRAVEL_ROUTE}
-                  fill="none"
-                  stroke="#fff"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={routeLen || 1}
-                  initial={false}
-                  animate={{ strokeDashoffset: revealed ? 0 : routeLen || 1 }}
-                  transition={reduced ? { duration: 0 } : { duration: 2.5, ease: 'easeInOut' }}
+            {/* ── Layer 0 · ground shadow + extruded island slab ── */}
+            <svg viewBox={VIEWBOX} className="absolute inset-0 h-full w-full" aria-hidden>
+              <defs>
+                <radialGradient id="island-shadow" cx="0.5" cy="0.5" r="0.5">
+                  <stop offset="0%" stopColor="rgba(0,0,0,0.6)" />
+                  <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+                </radialGradient>
+              </defs>
+              <ellipse cx="200" cy="452" rx="155" ry="17" fill="url(#island-shadow)" />
+              <ellipse cx="200" cy="452" rx="130" ry="13" fill="none" stroke="rgba(34,211,238,0.12)" strokeWidth="1" />
+              {[12, 9.6, 7.2, 4.8, 2.4].map((dy) => (
+                <path
+                  key={dy}
+                  d={INDIA_OUTLINE}
+                  transform={`translate(0 ${dy})`}
+                  fill="#05091C"
+                  stroke="rgba(139,92,246,0.18)"
+                  strokeWidth="1"
+                  strokeLinejoin="round"
                 />
-              </mask>
-            </defs>
-
-            {/* Ground shadow + extruded base plate → floating 3D island */}
-            <ellipse cx="200" cy="452" rx="150" ry="16" fill="url(#island-shadow)" />
-            <path d={INDIA_OUTLINE} transform="translate(0 7)" fill="#060A1E" stroke="rgba(139,92,246,0.22)" strokeWidth="1.5" strokeLinejoin="round" />
-
-            {/* Landmass */}
-            <path
-              d={INDIA_OUTLINE}
-              fill="url(#land-grad)"
-              stroke="rgba(139,92,246,0.45)"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-
-            {/* Terrain texture + graticule, clipped to the landmass */}
-            <g clipPath="url(#india-clip)" aria-hidden>
-              <rect x="40" y="10" width="360" height="460" fill="url(#map-dots)" />
-              {[110, 170, 230, 290, 350].map((x) => (
-                <line key={`v${x}`} x1={x} y1="10" x2={x} y2="470" stroke="rgba(139,92,246,0.08)" strokeWidth="1" />
               ))}
-              {[80, 150, 220, 290, 360, 430].map((y) => (
-                <line key={`h${y}`} x1="40" y1={y} x2="400" y2={y} stroke="rgba(139,92,246,0.08)" strokeWidth="1" />
-              ))}
-            </g>
+            </svg>
 
-            {/* Compass rose */}
-            <g transform="translate(372 52)" opacity="0.75" aria-hidden>
-              <circle r="10" fill="none" stroke="rgba(148,163,184,0.35)" strokeWidth="1" />
-              <path d="M0 -7 L2.6 4 L0 1.6 L-2.6 4 Z" fill="#22D3EE" />
-              <text y="-15" textAnchor="middle" fontSize="9" fill="#94A3B8" fontFamily={MONO}>
-                N
-              </text>
-            </g>
+            {/* ── Layer 1 · landmass, terrain, fog-of-war ── */}
+            <svg
+              viewBox={VIEWBOX}
+              className="absolute inset-0 h-full w-full"
+              style={{ transform: `translateZ(${Z_LAND}px)` }}
+              aria-hidden
+            >
+              <defs>
+                <linearGradient id="land-grad" x1="0" y1="20" x2="0" y2="460" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="rgba(139,92,246,0.18)" />
+                  <stop offset="100%" stopColor="rgba(34,211,238,0.06)" />
+                </linearGradient>
+                <clipPath id="india-clip">
+                  <path d={INDIA_OUTLINE} />
+                </clipPath>
+                <pattern id="map-dots" width="11" height="11" patternUnits="userSpaceOnUse">
+                  <circle cx="1.2" cy="1.2" r="0.9" fill="rgba(139,92,246,0.16)" />
+                </pattern>
+              </defs>
 
-            {/* Fog-of-war zones — cities not yet unlocked */}
-            {LOCKED_ZONES.map((z) => (
-              <g key={z.name} opacity="0.55" aria-hidden>
-                <circle cx={z.x} cy={z.y} r="2.5" fill="none" stroke="rgba(148,163,184,0.6)" strokeWidth="1" strokeDasharray="1.5 1.5" />
-                <text x={z.x + 6} y={z.y + 2.5} fontSize="7.5" letterSpacing="1" fill="rgba(148,163,184,0.55)" fontFamily={MONO}>
-                  {z.name}
+              <path
+                d={INDIA_OUTLINE}
+                fill="url(#land-grad)"
+                stroke="rgba(139,92,246,0.55)"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+                style={{ filter: 'drop-shadow(0 0 7px rgba(139,92,246,0.3))' }}
+              />
+
+              <g clipPath="url(#india-clip)">
+                <rect x="40" y="10" width="360" height="460" fill="url(#map-dots)" />
+                {[110, 170, 230, 290, 350].map((x) => (
+                  <line key={`v${x}`} x1={x} y1="10" x2={x} y2="470" stroke="rgba(139,92,246,0.08)" strokeWidth="1" />
+                ))}
+                {[80, 150, 220, 290, 360, 430].map((y) => (
+                  <line key={`h${y}`} x1="40" y1={y} x2="400" y2={y} stroke="rgba(139,92,246,0.08)" strokeWidth="1" />
+                ))}
+              </g>
+
+              {/* Compass rose */}
+              <g transform="translate(372 52)" opacity="0.75">
+                <circle r="10" fill="none" stroke="rgba(148,163,184,0.35)" strokeWidth="1" />
+                <path d="M0 -7 L2.6 4 L0 1.6 L-2.6 4 Z" fill="#22D3EE" />
+                <text y="-15" textAnchor="middle" fontSize="9" fill="#94A3B8" fontFamily={MONO}>
+                  N
                 </text>
               </g>
-            ))}
 
-            {/* Invisible full route — measured for the reveal mask and sampled
-                by the vehicle animation */}
-            <path ref={routeRef} d={TRAVEL_ROUTE} fill="none" stroke="none" />
+              {/* Fog-of-war zones — cities not yet unlocked */}
+              {LOCKED_ZONES.map((z) => (
+                <g key={z.name} opacity="0.55">
+                  <circle cx={z.x} cy={z.y} r="2.5" fill="none" stroke="rgba(148,163,184,0.6)" strokeWidth="1" strokeDasharray="1.5 1.5" />
+                  <text x={z.x + 6} y={z.y + 2.5} fontSize="7.5" letterSpacing="1" fill="rgba(148,163,184,0.55)" fontFamily={MONO}>
+                    {z.name}
+                  </text>
+                </g>
+              ))}
 
-            {/* One dotted leg per transport mode, revealed by the animated mask */}
-            {LEGS.map((leg, i) => (
-              <path
-                key={leg.mode}
-                ref={(el) => {
-                  legRefs.current[i] = el
-                }}
-                d={leg.d}
-                fill="none"
-                stroke="url(#route-grad)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeDasharray={leg.dash}
-                mask="url(#route-mask)"
-                opacity={reduced || routeLen ? 1 : 0}
-                style={{ filter: 'drop-shadow(0 0 3px rgba(139,92,246,0.6))' }}
-              />
-            ))}
-
-            {worldMap.waypoints.map((wp, i) => {
-              const lbl = WP_LABELS[wp.place]
-              const short = wp.place.split(',')[0]
-              return (
+              {/* Ground-contact shadows anchoring the floating waypoints above */}
+              {worldMap.waypoints.map((wp) => (
                 <g key={wp.place}>
-                  {wp.pulse && !reduced && (
-                    <circle cx={wp.x} cy={wp.y} r="6" fill="none" stroke={accentHex[wp.accent]} strokeWidth="1.5">
-                      <animate attributeName="r" values="6;14" dur="2s" repeatCount="indefinite" />
-                      <animate attributeName="opacity" values="0.8;0" dur="2s" repeatCount="indefinite" />
-                    </circle>
-                  )}
-                  <motion.g
-                    initial={false}
-                    animate={{ opacity: revealed ? 1 : 0 }}
-                    transition={reduced ? { duration: 0 } : { delay: 0.3 + i * 0.55, duration: 0.35 }}
-                  >
-                    <circle cx={wp.x} cy={wp.y} r="5" fill={accentHex[wp.accent]} stroke="#0B1026" strokeWidth="1.5">
-                      <title>{`${wp.place} — ${wp.role}`}</title>
-                    </circle>
-                    {lbl && (
-                      <text
-                        x={wp.x + lbl.dx}
-                        y={wp.y + lbl.dy}
-                        fontSize="8"
-                        letterSpacing="1"
-                        fontFamily={MONO}
-                        fill={accentHex[wp.accent]}
-                        textAnchor={lbl.anchor}
-                        opacity="0.9"
-                      >
-                        {short}
-                      </text>
-                    )}
-                  </motion.g>
+                  <ellipse cx={wp.x} cy={wp.y} rx="4.5" ry="2" fill="rgba(0,0,0,0.55)" />
+                  <circle cx={wp.x} cy={wp.y} r="1.6" fill={accentHex[wp.accent]} opacity="0.55" />
                 </g>
-              )
-            })}
+              ))}
+            </svg>
 
-            {/* Traveling vehicle badge — glyph swaps per leg, positioned each frame */}
-            {!reduced && (
-              <g
-                ref={vehicleRef}
-                style={{ opacity: 0, color: '#F1F5F9', filter: 'drop-shadow(0 0 5px rgba(34,211,238,0.8))' }}
-                aria-hidden
-              >
-                <circle r="10" fill="#0B1026" stroke="url(#route-grad)" strokeWidth="1.5" />
-                <g
+            {/* ── Layer 2 · holographic route, waypoints, vehicle ── */}
+            <svg
+              viewBox={VIEWBOX}
+              className="absolute inset-0 h-full w-full"
+              style={{ transform: `translateZ(${Z_ROUTE}px)` }}
+              aria-hidden
+            >
+              <defs>
+                <linearGradient id="route-grad" x1="278" y1="213" x2="155" y2="385" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#8B5CF6" />
+                  <stop offset="100%" stopColor="#22D3EE" />
+                </linearGradient>
+                <mask id="route-mask" maskUnits="userSpaceOnUse">
+                  <motion.path
+                    d={TRAVEL_ROUTE}
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    strokeDasharray={routeLen || 1}
+                    initial={false}
+                    animate={{ strokeDashoffset: revealed ? 0 : routeLen || 1 }}
+                    transition={reduced ? { duration: 0 } : { duration: 2.5, ease: 'easeInOut' }}
+                  />
+                </mask>
+              </defs>
+
+              {/* Invisible full route — measured for the reveal mask and sampled
+                  by the vehicle animation */}
+              <path ref={routeRef} d={TRAVEL_ROUTE} fill="none" stroke="none" />
+
+              {/* One dotted leg per transport mode, revealed by the animated
+                  mask, with a slow marching-ants energy flow */}
+              {LEGS.map((leg, i) => (
+                <path
+                  key={leg.mode}
                   ref={(el) => {
-                    modeRefs.current.TRAIN = el
+                    legRefs.current[i] = el
                   }}
-                >
-                  <VehicleGlyph mode="TRAIN" />
-                </g>
+                  d={leg.d}
+                  fill="none"
+                  stroke="url(#route-grad)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray={leg.dash}
+                  mask="url(#route-mask)"
+                  opacity={reduced || routeLen ? 1 : 0}
+                  className={reduced ? undefined : 'anim-dash-flow'}
+                  style={{ filter: 'drop-shadow(0 0 3px rgba(139,92,246,0.6))' }}
+                />
+              ))}
+
+              {/* Solid trail behind the vehicle — dasharray updated per frame */}
+              {!reduced && (
+                <path
+                  ref={trailRef}
+                  d={TRAVEL_ROUTE}
+                  fill="none"
+                  stroke="url(#route-grad)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="0 10000"
+                  opacity="0.9"
+                  style={{ filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.7))' }}
+                />
+              )}
+
+              {worldMap.waypoints.map((wp, i) => {
+                const lbl = WP_LABELS[wp.place]
+                const short = wp.place.split(',')[0]
+                const hex = accentHex[wp.accent]
+                return (
+                  <g key={wp.place}>
+                    {wp.pulse && !reduced && (
+                      <circle cx={wp.x} cy={wp.y} r="7" fill="none" stroke={hex} strokeWidth="1.5">
+                        <animate attributeName="r" values="7;16" dur="2s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.8;0" dur="2s" repeatCount="indefinite" />
+                      </circle>
+                    )}
+                    <motion.g
+                      initial={false}
+                      animate={{ opacity: revealed ? 1 : 0 }}
+                      transition={reduced ? { duration: 0 } : { delay: 0.3 + i * 0.55, duration: 0.35 }}
+                    >
+                      <circle cx={wp.x} cy={wp.y} r="9" fill={hex} opacity="0.18" />
+                      <circle cx={wp.x} cy={wp.y} r="6.5" fill="#0B1026" stroke={hex} strokeWidth="1.5">
+                        <title>{`${wp.place} — ${wp.role}`}</title>
+                      </circle>
+                      <circle cx={wp.x} cy={wp.y} r="4" fill={hex} />
+                      <text
+                        x={wp.x}
+                        y={wp.y + 2}
+                        fontSize="5.5"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                        fill="#0B1026"
+                        fontFamily={MONO}
+                      >
+                        {i + 1}
+                      </text>
+                      {lbl && (
+                        <text
+                          x={wp.x + lbl.dx}
+                          y={wp.y + lbl.dy}
+                          fontSize="8.5"
+                          letterSpacing="1"
+                          fontFamily={MONO}
+                          fill={hex}
+                          textAnchor={lbl.anchor}
+                          stroke="#0B1026"
+                          strokeWidth="3"
+                          paintOrder="stroke"
+                        >
+                          {short}
+                        </text>
+                      )}
+                    </motion.g>
+                  </g>
+                )
+              })}
+
+              {/* Traveling vehicle badge — glyph swaps per leg, positioned each frame */}
+              {!reduced && (
                 <g
-                  ref={(el) => {
-                    modeRefs.current.BUS = el
-                  }}
-                  style={{ display: 'none' }}
+                  ref={vehicleRef}
+                  style={{ opacity: 0, color: '#F1F5F9', filter: 'drop-shadow(0 0 5px rgba(34,211,238,0.8))' }}
                 >
-                  <VehicleGlyph mode="BUS" />
+                  <circle r="10" fill="#0B1026" stroke="url(#route-grad)" strokeWidth="1.5" />
+                  <g
+                    ref={(el) => {
+                      modeRefs.current.TRAIN = el
+                    }}
+                  >
+                    <TrainFront x={-7} y={-7} size={14} strokeWidth={2.2} />
+                  </g>
+                  <g
+                    ref={(el) => {
+                      modeRefs.current.BUS = el
+                    }}
+                    style={{ display: 'none' }}
+                  >
+                    <Bus x={-7} y={-7} size={14} strokeWidth={2.2} />
+                  </g>
+                  <g
+                    ref={(el) => {
+                      modeRefs.current.FLIGHT = el
+                    }}
+                    style={{ display: 'none' }}
+                  >
+                    <Plane x={-7} y={-7} size={14} strokeWidth={2.2} />
+                  </g>
                 </g>
-                <g
-                  ref={(el) => {
-                    modeRefs.current.FLIGHT = el
-                  }}
-                  style={{ display: 'none' }}
-                >
-                  <VehicleGlyph mode="FLIGHT" />
-                </g>
-              </g>
-            )}
-          </svg>
+              )}
+            </svg>
+
+            {/* ── Layer 3 · drifting clouds high above the island ── */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{ transform: `translateZ(${Z_SKY}px)` }}
+            >
+              <motion.div
+                className="absolute left-[8%] top-[26%] h-7 w-24 rounded-full"
+                style={{ background: 'radial-gradient(ellipse, rgba(241,245,249,0.11), transparent 70%)', filter: 'blur(2px)' }}
+                animate={reduced ? undefined : { x: [0, 30, 0] }}
+                transition={{ duration: 17, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.div
+                className="absolute right-[6%] top-[55%] h-6 w-20 rounded-full"
+                style={{ background: 'radial-gradient(ellipse, rgba(241,245,249,0.09), transparent 70%)', filter: 'blur(2px)' }}
+                animate={reduced ? undefined : { x: [0, -24, 0] }}
+                transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+              />
+            </div>
+          </motion.div>
         </motion.div>
 
         {/* Live travel log — updated by the vehicle loop */}
@@ -383,31 +483,45 @@ export default function WorldMap() {
         >
           {reduced ? 'TRAIN + BUS + FLIGHT · NALHATI TO BENGALURU' : 'CALCULATING ROUTE…'}
         </p>
+        {!reduced && (
+          <p className="relative hidden text-center font-mono text-[8px] tracking-[0.3em] text-ink-muted/60 sm:block">
+            ✦ MOVE CURSOR TO TILT THE MAP ✦
+          </p>
+        )}
 
         {/* Waypoint legend with transport connectors (always visible) */}
         <ul className="relative mt-2 flex flex-wrap items-center justify-center gap-1.5">
-          {worldMap.waypoints.map((wp, i) => (
-            <Fragment key={wp.place}>
-              <li className="rounded border border-white/5 bg-deep/50 px-2.5 py-1 text-center">
-                <p
-                  className="whitespace-nowrap font-mono text-[9px] font-bold tracking-wider"
-                  style={{ color: accentHex[wp.accent] }}
+          {worldMap.waypoints.map((wp, i) => {
+            const Icon = i < LEGS.length ? MODE_ICON[LEGS[i].mode] : null
+            return (
+              <Fragment key={wp.place}>
+                <li
+                  className="rounded border border-white/5 border-l-2 bg-deep/50 px-2.5 py-1 text-center"
+                  style={{ borderLeftColor: accentHex[wp.accent] }}
                 >
-                  📍 {wp.place}
-                </p>
-                <p className="whitespace-nowrap font-mono text-[8px] tracking-widest text-ink-muted">
-                  {wp.role}
-                </p>
-              </li>
-              {i < LEGS.length && (
-                <li aria-hidden className="text-ink-muted" title={`${LEGS[i].mode}: ${LEGS[i].label}`}>
-                  <svg width="16" height="16" viewBox="-11 -11 22 22" className="block">
-                    <VehicleGlyph mode={LEGS[i].mode} />
-                  </svg>
+                  <p
+                    className="whitespace-nowrap font-mono text-[9px] font-bold tracking-wider"
+                    style={{ color: accentHex[wp.accent] }}
+                  >
+                    📍 {wp.place}
+                  </p>
+                  <p className="whitespace-nowrap font-mono text-[8px] tracking-widest text-ink-muted">
+                    {wp.role}
+                  </p>
                 </li>
-              )}
-            </Fragment>
-          ))}
+                {Icon && (
+                  <li
+                    aria-hidden
+                    className="flex flex-col items-center text-ink-muted"
+                    title={`${LEGS[i].mode}: ${LEGS[i].label}`}
+                  >
+                    <Icon size={13} strokeWidth={2} />
+                    <span className="font-mono text-[6.5px] tracking-widest">{LEGS[i].mode}</span>
+                  </li>
+                )}
+              </Fragment>
+            )
+          })}
         </ul>
       </div>
       <p className="mt-3 text-center font-mono text-[10px] leading-relaxed tracking-wider text-ink-muted">
