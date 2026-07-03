@@ -118,16 +118,18 @@ export default function WorldMap() {
   const [gyro, setGyro] = useState<'none' | 'ask' | 'on' | 'denied'>('none')
   const gyroBase = useRef<{ beta: number; gamma: number } | null>(null)
   const detachRef = useRef<(() => void) | null>(null)
-  const GYRO_RANGE = 16 // degrees of device tilt for full parallax
+  const GYRO_RANGE = 12 // degrees of device tilt for full parallax
 
   const attachGyro = useCallback(() => {
     const onOrient = (e: DeviceOrientationEvent) => {
       if (e.beta == null || e.gamma == null) return
       const base = (gyroBase.current ??= { beta: e.beta, gamma: e.gamma })
-      base.beta += (e.beta - base.beta) * 0.008
-      base.gamma += (e.gamma - base.gamma) * 0.008
-      py.set(Math.max(-0.5, Math.min(0.5, (e.beta - base.beta) / (GYRO_RANGE * 2))))
-      px.set(Math.max(-0.5, Math.min(0.5, (e.gamma - base.gamma) / (GYRO_RANGE * 2))))
+      base.beta += (e.beta - base.beta) * 0.0025
+      base.gamma += (e.gamma - base.gamma) * 0.0025
+      // Negated: the screen is a window, not a mirror — tilting the phone's
+      // right edge down should reveal the scene from the right.
+      py.set(Math.max(-0.5, Math.min(0.5, -(e.beta - base.beta) / (GYRO_RANGE * 2))))
+      px.set(Math.max(-0.5, Math.min(0.5, -(e.gamma - base.gamma) / (GYRO_RANGE * 2))))
       setGyro('on')
     }
     window.addEventListener('deviceorientation', onOrient)
