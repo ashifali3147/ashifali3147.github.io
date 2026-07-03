@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from 'framer-motion'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { motion, useInView, useReducedMotion } from 'framer-motion'
 import { worldMap, type Accent } from '../content'
 
 const accentHex: Record<Accent, string> = {
@@ -29,10 +30,22 @@ const TRAVEL_ROUTE = 'M278 213 L289 232 L282 243 C 255 297, 200 345, 155 385'
 
 export default function WorldMap() {
   const reduced = useReducedMotion()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const inView = useInView(panelRef, { once: true, amount: 0.3 })
+
+  // Measure the route once, then reveal it with a dashoffset-animated mask —
+  // keeps the dotted styling and works reliably on every mobile engine.
+  const routeRef = useRef<SVGPathElement>(null)
+  const [routeLen, setRouteLen] = useState(0)
+  useLayoutEffect(() => {
+    if (routeRef.current) setRouteLen(routeRef.current.getTotalLength())
+  }, [])
+
+  const revealed = reduced || (inView && routeLen > 0)
 
   return (
     <div className="mx-auto mb-20 max-w-xl">
-      <div className="relative overflow-hidden rounded-xl border border-white/10 bg-panel p-4">
+      <div ref={panelRef} className="relative overflow-hidden rounded-xl border border-white/10 bg-panel p-4">
         <div aria-hidden className="star-grid pointer-events-none absolute inset-0" />
         <p className="relative mb-2 text-center font-mono text-[10px] tracking-[0.3em] text-ink-muted">
           FAST TRAVEL — WORLD MAP
@@ -48,6 +61,19 @@ export default function WorldMap() {
               <stop offset="0%" stopColor="#8B5CF6" />
               <stop offset="100%" stopColor="#22D3EE" />
             </linearGradient>
+            <mask id="route-mask" maskUnits="userSpaceOnUse">
+              <motion.path
+                d={TRAVEL_ROUTE}
+                fill="none"
+                stroke="#fff"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={routeLen || 1}
+                initial={false}
+                animate={{ strokeDashoffset: revealed ? 0 : routeLen || 1 }}
+                transition={reduced ? { duration: 0 } : { duration: 2.5, ease: 'easeInOut' }}
+              />
+            </mask>
           </defs>
 
           <path
@@ -58,21 +84,44 @@ export default function WorldMap() {
             strokeLinejoin="round"
           />
 
-          {/* Animated travel line */}
-          <motion.path
+          {/* Dotted travel line, revealed by the animated mask */}
+          <path
+            ref={routeRef}
             d={TRAVEL_ROUTE}
             fill="none"
             stroke="url(#route-grad)"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeDasharray="6 6"
-            initial={reduced ? { pathLength: 1 } : { pathLength: 0 }}
-            whileInView={{ pathLength: 1 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 2.5, ease: 'easeInOut' }}
+            mask="url(#route-mask)"
+            opacity={reduced || routeLen ? 1 : 0}
           />
 
-          {waypointMarkers(reduced ?? false)}
+          {worldMap.waypoints.map((wp, i) => (
+            <g key={wp.place}>
+              {wp.pulse && !reduced && (
+                <circle cx={wp.x} cy={wp.y} r="6" fill="none" stroke={accentHex[wp.accent]} strokeWidth="1.5">
+                  <animate attributeName="r" values="6;14" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.8;0" dur="2s" repeatCount="indefinite" />
+                </circle>
+              )}
+              <motion.circle
+                cx={wp.x}
+                cy={wp.y}
+                r="5"
+                fill={accentHex[wp.accent]}
+                stroke="#0B1026"
+                strokeWidth="1.5"
+                initial={false}
+                animate={{ opacity: revealed ? 1 : 0 }}
+                transition={
+                  reduced ? { duration: 0 } : { delay: 0.3 + i * 0.55, duration: 0.35 }
+                }
+              >
+                <title>{`${wp.place} — ${wp.role}`}</title>
+              </motion.circle>
+            </g>
+          ))}
         </svg>
 
         {/* Waypoint legend (always visible; tooltips are a desktop bonus) */}
@@ -100,32 +149,4 @@ export default function WorldMap() {
       </p>
     </div>
   )
-}
-
-function waypointMarkers(reduced: boolean) {
-  return worldMap.waypoints.map((wp, i) => (
-    <g key={wp.place}>
-      {wp.pulse && !reduced && (
-        <circle cx={wp.x} cy={wp.y} r="6" fill="none" stroke={accentHex[wp.accent]} strokeWidth="1.5">
-          <animate attributeName="r" values="6;14" dur="2s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.8;0" dur="2s" repeatCount="indefinite" />
-        </circle>
-      )}
-      <motion.circle
-        cx={wp.x}
-        cy={wp.y}
-        r="5"
-        fill={accentHex[wp.accent]}
-        stroke="#0B1026"
-        strokeWidth="1.5"
-        initial={reduced ? { opacity: 1 } : { opacity: 0, scale: 0 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true, margin: '-80px' }}
-        transition={{ delay: reduced ? 0 : 0.4 + i * 0.55, duration: 0.3 }}
-        style={{ transformOrigin: `${wp.x}px ${wp.y}px` }}
-      >
-        <title>{`${wp.place} — ${wp.role}`}</title>
-      </motion.circle>
-    </g>
-  ))
 }

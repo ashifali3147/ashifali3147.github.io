@@ -18,12 +18,16 @@ function BossCard({ boss }: { boss: Boss }) {
   const reduced = useReducedMotion()
 
   return (
-    <div className="[perspective:1400px]">
+    // Hover lives on this non-rotating wrapper: mid-flip the button's hit area
+    // collapses to a sliver, so hover on the button itself cancels immediately.
+    <div
+      className="[perspective:1400px]"
+      onPointerEnter={(e) => e.pointerType === 'mouse' && setFlipped(true)}
+      onPointerLeave={(e) => e.pointerType === 'mouse' && setFlipped(false)}
+    >
       <motion.button
         type="button"
         onClick={() => setFlipped((f) => !f)}
-        onHoverStart={() => setFlipped(true)}
-        onHoverEnd={() => setFlipped(false)}
         animate={{ rotateY: flipped ? 180 : 0 }}
         transition={reduced ? { duration: 0 } : { duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
         className="relative block min-h-[320px] w-full text-left [transform-style:preserve-3d]"

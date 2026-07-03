@@ -1,14 +1,32 @@
-import { useRef } from 'react'
-import { motion, useInView, useReducedMotion, useScroll, useSpring } from 'framer-motion'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  motion,
+  useInView,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from 'framer-motion'
 import SectionHeader from './SectionHeader'
 import WorldMap from './WorldMap'
 import { levels, nextLevel, type Level } from '../content'
 
-// The snaking journey path lives in a fixed-width column: left rail on mobile,
-// centered on md+. A faint dotted base path sits underneath; a glowing solid
-// path draws over it as the user scrolls (the signature animation).
-const SNAKE_PATH =
-  'M40 0 C 64 60, 16 120, 40 180 C 64 240, 16 300, 40 360 C 64 420, 16 480, 40 540 C 64 600, 16 660, 40 720 C 64 780, 16 840, 40 900 C 58 945, 40 975, 40 1000'
+// The journey path is generated at the container's real pixel size (no viewBox
+// stretching) and revealed via measured stroke-dashoffset — the only SVG
+// draw-on technique that behaves identically across engines and screen sizes.
+function buildSnakePath(height: number): string {
+  if (height <= 0) return ''
+  const cx = 40
+  const seg = 240
+  let d = `M${cx} 0`
+  for (let y = 0; y < height; y += seg) {
+    const end = Math.min(y + seg, height)
+    const s = end - y
+    const amp = Math.min(24, s / 4)
+    d += ` C ${cx + amp} ${(y + s / 3).toFixed(1)} ${cx - amp} ${(y + (2 * s) / 3).toFixed(1)} ${cx} ${end.toFixed(1)}`
+  }
+  return d
+}
 
 function LevelNode({ level, index }: { level: Level; index: number }) {
   const ref = useRef<HTMLLIElement>(null)
@@ -22,7 +40,7 @@ function LevelNode({ level, index }: { level: Level; index: number }) {
       <div
         className={`absolute left-5 top-1 z-10 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-full border-2 bg-deep font-mono text-sm font-bold transition-all duration-500 md:left-1/2 ${
           inView
-            ? 'anim-pulse-glow border-accent-violet text-accent-violet shadow-[0_0_18px_rgba(139,92,246,0.5)]'
+            ? 'anim-pulse-glow border-accent-violet text-accent-violet-light shadow-[0_0_18px_rgba(139,92,246,0.5)]'
             : 'border-white/20 text-ink-muted'
         }`}
         aria-hidden
@@ -59,12 +77,36 @@ function LevelNode({ level, index }: { level: Level; index: number }) {
 
 export default function Journey() {
   const trackRef = useRef<HTMLDivElement>(null)
+  const pathRef = useRef<SVGPathElement>(null)
   const reduced = useReducedMotion()
+
+  // Track the real rendered height so the path is built in 1:1 pixel units.
+  const [trackHeight, setTrackHeight] = useState(0)
+  useLayoutEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    const update = () => setTrackHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const snakePath = useMemo(() => buildSnakePath(trackHeight), [trackHeight])
+
+  // Measure the generated path, then drive dashoffset from scroll progress.
+  const [pathLen, setPathLen] = useState(0)
+  useLayoutEffect(() => {
+    if (pathRef.current && snakePath) setPathLen(pathRef.current.getTotalLength())
+  }, [snakePath])
+
   const { scrollYProgress } = useScroll({
     target: trackRef,
     offset: ['start 0.75', 'end 0.55'],
   })
-  const pathLength = useSpring(scrollYProgress, { stiffness: 70, damping: 22 })
+  const smooth = useSpring(scrollYProgress, { stiffness: 70, damping: 24 })
+  // Clamp so spring overshoot can never draw past the end and retract.
+  const dashOffset = useTransform(smooth, (v) => pathLen * (1 - Math.min(1, Math.max(0, v))))
 
   return (
     <section id="journey" className="scroll-mt-20 px-4 py-24 sm:px-6">
@@ -74,41 +116,53 @@ export default function Journey() {
         <WorldMap />
 
         <div ref={trackRef} className="relative">
-          {/* Journey path column */}
-          <svg
-            className="absolute left-5 top-0 h-full w-10 -translate-x-1/2 md:left-1/2 md:w-20"
-            viewBox="0 0 80 1000"
-            preserveAspectRatio="none"
-            aria-hidden
-          >
-            <defs>
-              <linearGradient id="journey-grad" x1="0" y1="0" x2="0" y2="1000" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#8B5CF6" />
-                <stop offset="100%" stopColor="#22D3EE" />
-              </linearGradient>
-            </defs>
-            {/* Faint dotted base */}
-            <path
-              d={SNAKE_PATH}
+          {/* Journey path column — fixed 80px wide, 1:1 units, no stretching */}
+          {trackHeight > 0 && (
+            <svg
+              className="absolute left-5 top-0 -translate-x-1/2 md:left-1/2"
+              width={80}
+              height={trackHeight}
+              viewBox={`0 0 80 ${trackHeight}`}
               fill="none"
-              stroke="rgba(139,92,246,0.25)"
-              strokeWidth="2"
-              strokeDasharray="1 8"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-            {/* Glowing draw-on-scroll overlay */}
-            <motion.path
-              d={SNAKE_PATH}
-              fill="none"
-              stroke="url(#journey-grad)"
-              strokeWidth="3"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-              style={reduced ? { pathLength: 1 } : { pathLength }}
-              filter="drop-shadow(0 0 6px rgba(139,92,246,0.7))"
-            />
-          </svg>
+              aria-hidden
+            >
+              <defs>
+                <linearGradient
+                  id="journey-grad"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2={trackHeight}
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0%" stopColor="#8B5CF6" />
+                  <stop offset="100%" stopColor="#22D3EE" />
+                </linearGradient>
+              </defs>
+              {/* Faint dotted base */}
+              <path
+                d={snakePath}
+                stroke="rgba(139,92,246,0.25)"
+                strokeWidth="2"
+                strokeDasharray="2 10"
+                strokeLinecap="round"
+              />
+              {/* Glowing draw-on-scroll overlay */}
+              <motion.path
+                ref={pathRef}
+                d={snakePath}
+                stroke="url(#journey-grad)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={pathLen || undefined}
+                opacity={pathLen ? 1 : 0}
+                style={{
+                  strokeDashoffset: reduced ? 0 : dashOffset,
+                  filter: 'drop-shadow(0 0 6px rgba(139,92,246,0.7))',
+                }}
+              />
+            </svg>
+          )}
 
           <ol className="space-y-16 pb-16 md:space-y-24">
             {levels.map((level, i) => (
