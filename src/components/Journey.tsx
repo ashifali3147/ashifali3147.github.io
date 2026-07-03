@@ -14,12 +14,17 @@ import { levels, nextLevel, type Level } from '../content'
 // The journey path is generated at the container's real pixel size (no viewBox
 // stretching) and revealed via measured stroke-dashoffset — the only SVG
 // draw-on technique that behaves identically across engines and screen sizes.
+
+// Center of the level badge (top-1 offset + half of h-11) — the path starts
+// at node 1's center rather than the very top of the list.
+const PATH_START_Y = 26
+
 function buildSnakePath(height: number): string {
-  if (height <= 0) return ''
+  if (height <= PATH_START_Y) return ''
   const cx = 40
   const seg = 240
-  let d = `M${cx} 0`
-  for (let y = 0; y < height; y += seg) {
+  let d = `M${cx} ${PATH_START_Y}`
+  for (let y = PATH_START_Y; y < height; y += seg) {
     const end = Math.min(y + seg, height)
     const s = end - y
     const amp = Math.min(24, s / 4)
