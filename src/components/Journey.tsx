@@ -77,13 +77,15 @@ function LevelNode({ level, index }: { level: Level; index: number }) {
 
 export default function Journey() {
   const trackRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLOListElement>(null)
   const pathRef = useRef<SVGPathElement>(null)
   const reduced = useReducedMotion()
 
-  // Track the real rendered height so the path is built in 1:1 pixel units.
+  // Measure the levels list (not the whole track) so the path ends exactly at
+  // the top of the NEXT LEVEL card instead of running past it.
   const [trackHeight, setTrackHeight] = useState(0)
   useLayoutEffect(() => {
-    const el = trackRef.current
+    const el = listRef.current
     if (!el) return
     const update = () => setTrackHeight(el.offsetHeight)
     update()
@@ -101,7 +103,7 @@ export default function Journey() {
   }, [snakePath])
 
   const { scrollYProgress } = useScroll({
-    target: trackRef,
+    target: listRef,
     offset: ['start 0.75', 'end 0.55'],
   })
   const smooth = useSpring(scrollYProgress, { stiffness: 70, damping: 24 })
@@ -164,7 +166,7 @@ export default function Journey() {
             </svg>
           )}
 
-          <ol className="space-y-16 pb-16 md:space-y-24">
+          <ol ref={listRef} className="space-y-16 pb-16 md:space-y-24">
             {levels.map((level, i) => (
               <LevelNode key={level.number} level={level} index={i} />
             ))}
