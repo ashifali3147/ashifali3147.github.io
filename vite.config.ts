@@ -11,4 +11,8 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 export default defineConfig({
   plugins: [react(), ...(process.env.HTTPS ? [basicSsl()] : [])],
   base: process.env.VITE_BASE || '/',
+  // Dev-only: let Cloudflare quick tunnels reach the dev server — iOS only
+  // grants gyroscope access on fully-trusted HTTPS, which self-signed can't
+  // provide, so phone testing goes through a tunnel.
+  server: { allowedHosts: ['.trycloudflare.com'] },
 })

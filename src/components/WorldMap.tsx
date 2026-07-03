@@ -112,7 +112,10 @@ export default function WorldMap() {
   // The baseline drifts slowly toward the current reading, so however the
   // phone is held becomes "neutral" and tilting away from it moves the map.
   // 'ask' = iOS, which only exposes the sensor after a user-gesture prompt.
-  const [gyro, setGyro] = useState<'none' | 'ask' | 'on'>('none')
+  // 'denied' = the prompt was refused or blocked — iOS also blocks the sensor
+  // entirely (no prompt) on pages with certificate errors, e.g. self-signed
+  // dev certs, so surface that instead of failing silently.
+  const [gyro, setGyro] = useState<'none' | 'ask' | 'on' | 'denied'>('none')
   const gyroBase = useRef<{ beta: number; gamma: number } | null>(null)
   const detachRef = useRef<(() => void) | null>(null)
   const GYRO_RANGE = 16 // degrees of device tilt for full parallax
@@ -150,9 +153,9 @@ export default function WorldMap() {
       const DOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }
       const res = await DOE.requestPermission?.()
       if (res === 'granted') attachGyro()
-      else setGyro('none')
+      else setGyro('denied')
     } catch {
-      setGyro('none')
+      setGyro('denied')
     }
   }
 
@@ -544,6 +547,11 @@ export default function WorldMap() {
               >
                 ◈ TAP TO ENABLE 3D TILT
               </button>
+            )}
+            {gyro === 'denied' && (
+              <p className="text-amber-400/80 [@media(hover:hover)]:hidden">
+                ⚠ MOTION ACCESS BLOCKED — ALLOW IT IN SETTINGS OR OPEN THE LIVE SITE
+              </p>
             )}
           </div>
         )}
