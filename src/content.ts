@@ -1,5 +1,7 @@
 // ============================================================
 // CONTENT SOURCE OF TRUTH — edit copy here, never in components.
+// Facts sourced from the PORTFOLIO_HIGHLIGHTS docs (verified against
+// code + git history). Don't invent metrics.
 // TODOs for Ashif:
 //   - TODO_PR_LINK: paste the LiveKit PR URL
 //   - TODO_LINK:    paste missing store links (iOS Daakia, Konnect)
@@ -31,12 +33,13 @@ export const hero = {
   headline: 'Ashif Ali',
   typewriter: [
     'builds Android apps',
-    'tames WebRTC',
-    'fixes the "unfixable"',
     'ships production SDKs',
+    'tames WebRTC',
+    'puts AI interpreters in live calls',
+    'fixes the "unfixable"',
   ],
   subline:
-    "Senior Android Developer · 4+ years · Real-time communication specialist (LiveKit, WebRTC, CallKit). I don't just build features — I hunt down the bugs everyone else gave up on.",
+    "Senior Android Developer · 4+ years · Real-time communication specialist (LiveKit, WebRTC, CallKit). I build the SDKs other companies embed — and hunt down the bugs everyone else gave up on.",
   ctaPrimary: { label: '▶ Start Journey', href: '#journey' },
   ctaSecondary: { label: 'View GitHub', href: 'https://github.com/ashifali3147' },
   statCard: [
@@ -69,7 +72,7 @@ export const skillCategories: {
       { name: 'Kotlin', level: 95, icon: devicon('kotlin/kotlin-original.svg') },
       { name: 'Java', level: 90, icon: devicon('java/java-original.svg') },
       { name: 'Android SDK', level: 95, icon: devicon('android/android-original.svg') },
-      { name: 'Flutter / Dart', level: 80, icon: devicon('flutter/flutter-original.svg') },
+      { name: 'Flutter / Dart', level: 85, icon: devicon('flutter/flutter-original.svg') },
     ],
   },
   {
@@ -78,6 +81,7 @@ export const skillCategories: {
     skills: [
       { name: 'WebRTC / LiveKit', level: 92 },
       { name: 'CallKit & PushKit', level: 88, icon: devicon('swift/swift-original.svg') },
+      { name: 'AI Meeting Agents / Live Translation', level: 82 },
       { name: 'MVVM / Clean Architecture', level: 90 },
       { name: 'Coroutines', level: 88, icon: devicon('kotlin/kotlin-original.svg') },
     ],
@@ -91,7 +95,7 @@ export const skillCategories: {
       { name: 'Room DB', level: 85, icon: devicon('android/android-original.svg') },
       { name: 'Git', level: 90, icon: devicon('git/git-original.svg') },
       { name: 'Hilt DI', level: 85 },
-      { name: 'Sentry', level: 80 },
+      { name: 'Sentry / Datadog', level: 80 },
     ],
   },
 ]
@@ -151,7 +155,7 @@ export const levels: Level[] = [
     name: 'Level Up: Daakia, Bengaluru',
     period: 'Apr 2024 – Present',
     location: '📍 BENGALURU',
-    body: 'Joined as SDE-2 / Senior Android Developer. Built a full video conferencing & webinar platform (think Zoom-class) on LiveKit — screen sharing, host controls, live translation, chat, recording.',
+    body: 'Joined as SDE-2 / Senior Android Developer. Built a Zoom-class video conferencing & webinar platform on LiveKit as sole mobile engineer — native iOS Picture-in-Picture, ReplayKit screen share, host controls, live translation, recording. 570+ commits, 20+ store releases.',
     badge: 'CLASS UPGRADE: Real-time Comms Specialist',
   },
   {
@@ -159,7 +163,7 @@ export const levels: Level[] = [
     name: 'Multiplayer Mode: The SDK Era',
     period: 'Nov 2024 – Present',
     location: '📍 BENGALURU',
-    body: 'Became core contributor to the daakia_vc_flutter_sdk — a production Flutter SDK other companies embed in their apps. Shipped v4.x releases: CallKit/PushKit calling, Sentry health monitoring, audio output switching, secure credential handling.',
+    body: 'Became sole maintainer of Daakia\'s Flutter SDK suite: the video-conferencing SDK (v1.0 → v4.5.1 across 875+ commits and 15 releases), a CallKit/VoIP plugin that survives killed apps, and an AI note-taker with real-time speech-to-speech translation.',
     badge: 'RARE SKILL: SDK Author',
   },
   {
@@ -182,42 +186,65 @@ export const nextLevel = {
 export interface Boss {
   name: string
   difficulty: number // out of 5
+  teaser: string // one-line hook shown on the card front
   fight: string
   winningMove: string
 }
 
 export const bosses: Boss[] = [
   {
-    name: '"The Android 16 Crasher"',
-    difficulty: 4,
-    fight:
-      'Screen sharing crashed on Android 16 devices in production. Users blocked, no obvious stack-trace culprit.',
-    winningMove:
-      'Traced it to the foreground service declaring microphone|camera service types alongside mediaProjection. Stripped the service down to mediaProjection only — crash eliminated, fix shipped in v4.4.1.',
-  },
-  {
     name: '"The Silent iOS Audio Killer"',
     difficulty: 5,
+    teaser: 'iOS 16 ate the "interruption ended" signal — meetings stayed mute.',
     fight:
       'On iOS 16+, audio never recovered after a cellular call interrupted a video meeting — the system\'s "interruption ended" signal simply doesn\'t arrive reliably. Users sat in silent meetings.',
     winningMove:
       "Built a multi-source recovery system listening on three independent notification channels so no interruption end goes unnoticed. Contributed the fix upstream to LiveKit's open-source Flutter SDK.",
   },
   {
-    name: '"The Vanishing Webhook"',
-    difficulty: 5,
+    name: '"The Webhook That Outlived Its App"',
+    difficulty: 4,
+    teaser: 'A killed iOS app still had to tell the backend "call declined."',
     fight:
-      'iOS terminated-state call events were unreliable — the OS gives apps only seconds of background execution, so client-side HTTPS calls silently died and call state desynced.',
+      'Declining a call from the lock screen of a killed iOS app gives you seconds of runtime — an in-process HTTP request silently dies, and every other device keeps ringing.',
     winningMove:
-      'Redesigned the architecture to be server-authoritative — webhooks emitted from the signaling layer with a join-timeout fallback, mirroring how Agora and CometChat solve it. Client can die; the truth survives on the server.',
+      "Rebuilt delivery on a background URLSession: the request body is staged to a file, the upload handed to the system daemon nsurlsessiond, and the outcome recovered later — possibly in a freshly relaunched process — from the task's taskDescription.",
   },
   {
-    name: '"The Doppelgänger"',
-    difficulty: 3,
+    name: '"The Android 16 Gauntlet"',
+    difficulty: 4,
+    teaser: 'One OS update, three foreground-service crashes in production.',
     fight:
-      'Duplicate participant identities in LiveKit rooms caused ghost users and broken sessions.',
+      'Targeting Android 16 turned screen share into a crash factory: SecurityException from foreground-service type masks, a race on rapid share toggling, and an older camera-type crash — all one root cause.',
     winningMove:
-      'Designed a server-side pre-join identity check pattern that blocks duplicates before they ever enter the room.',
+      'Rebuilt the native meeting service to compute its foreground-service type bitmask per call from the permissions actually granted, and made mediaProjection type changes synchronous and idempotent. Shipped in v4.4.1.',
+  },
+  {
+    name: '"The Secret Nobody Could Grep"',
+    difficulty: 4,
+    teaser: 'How do you ship secrets inside a package anyone can unzip?',
+    fight:
+      'A distributed SDK needs Sentry/Datadog credentials to report its own crashes — but any string shipped in a published package can be unzipped and grepped out in minutes.',
+    winningMove:
+      'Moved credential issuance server-side, keyed to each license: AES-256-GCM payloads decrypted client-side with an HKDF-derived key. The package itself never contains a usable secret.',
+  },
+  {
+    name: '"The Timezone Hydra"',
+    difficulty: 3,
+    teaser: 'Cut off one timezone bug, two more grew back.',
+    fight:
+      "Every fix for event times left calendar sync an hour off — the server sends wall-clock time in the event's own timezone, and DateTime.timeZoneName doesn't map to an IANA identifier at all.",
+    winningMove:
+      'Standardized on the IANA timezone database via flutter_timezone and rebuilt calendar sync to construct TZDateTime from UTC epoch instead of trusting device-local wall-clock math. The third fix held.',
+  },
+  {
+    name: '"The Ghost in the Caption Stream"',
+    difficulty: 3,
+    teaser: 'Live captions haunted by duplicate voices — only in production.',
+    fight:
+      'LiveKit can emit multiple concurrent transcription tracks (agent restarts, reconnects) and the UI rendered them all — duplicated, interleaved captions that never reproduced in a clean local demo.',
+    winningMove:
+      'Latched the first transcribed-track ID seen per session and silently dropped chunks from every other track — turning an ambiguous multi-source stream into a deterministic single source of truth.',
   },
 ]
 
@@ -227,7 +254,9 @@ export type Rarity = 'LEGENDARY' | 'EPIC' | 'RARE'
 export interface Project {
   rarity: Rarity
   name: string
+  meta?: string // compact stats line under the name
   pitch: string
+  highlights?: string[] // max 3 skimmable loot lines
   tags: string[]
   links: { label: string; href: string }[]
 }
@@ -236,27 +265,66 @@ export const projects: Project[] = [
   {
     rarity: 'LEGENDARY',
     name: 'Daakia VC Flutter SDK',
+    meta: '875+ commits · v1.0.0 → v4.5.1 · 15 releases · sole maintainer',
     pitch:
-      'A production video-conferencing SDK other companies embed: prebuilt meeting UI, chat, live transcription & translation, CallKit/PushKit native calling, Sentry health monitoring.',
-    tags: ['Flutter', 'Dart', 'LiveKit', 'WebRTC', 'CallKit', 'PushKit', 'Sentry'],
+      'Production video-conferencing SDK other companies embed: prebuilt meeting UI, chat, live transcription & translation, annotations, native calling.',
+    highlights: [
+      'License-gated credential pipeline — per-tenant Sentry/Datadog secrets decrypted with AES-256-GCM + HKDF; nothing greppable ships in the package',
+      'Cross-participant screen-share annotations that stay pixel-aligned while the video resizes mid-draw',
+      'Android 10 → 16 foreground-service crash hardening with permission-aware type masks',
+    ],
+    tags: ['Flutter', 'LiveKit', 'WebRTC', 'AES-GCM', 'Sentry', 'Datadog'],
     links: [
       { label: 'GitHub', href: 'https://github.com/Daakia-Org/daakia_vc_flutter_sdk' },
       { label: 'pub.dev', href: 'https://pub.dev/packages/daakia_vc_flutter_sdk' },
     ],
   },
   {
+    rarity: 'LEGENDARY',
+    name: 'Daakia CallKit Plugin',
+    meta: 'v1.0.0 → v1.1.2 · sole author · iOS CallKit + Android FGS',
+    pitch:
+      'Flutter VoIP plugin that solves the hardest problem in mobile calling: the call event must reach the backend even when the app is suspended or killed.',
+    highlights: [
+      'Webhooks delivered from a dead iOS app — file-staged uploads handed to nsurlsessiond, recovered across process relaunch',
+      'Dual-path (native + Dart) reporting that never double-fires and never silently drops — confirm-then-mark dedup on both platforms',
+      'Fixed lock-screen accept failing on cold start by removing the Android service-to-activity trampoline',
+    ],
+    tags: ['Flutter', 'CallKit', 'PushKit', 'URLSession', 'Foreground Service'],
+    links: [],
+  },
+  {
+    rarity: 'EPIC',
+    name: 'Daakia Note Taker SDK',
+    meta: 'Real-time AI translation · LiveKit agents · sole author',
+    pitch:
+      'Meeting-recording SDK with a live AI interpreter: dispatches a speech-to-speech translation agent into the room so two people speaking different languages understand each other — face to face, in real time.',
+    highlights: [
+      'Agent lifecycle tracked by a defensive identity-heuristic state machine — LiveKit gives no join/fail signal',
+      'Partial → final transcription state machine that auto-translates only finalized text',
+      'Hand-rolled 60fps waveform envelope follower — no DSP library',
+    ],
+    tags: ['Flutter', 'LiveKit', 'AI Agents', 'Speech-to-Speech', 'Transcription'],
+    links: [],
+  },
+  {
     rarity: 'EPIC',
     name: 'Daakia: Meeting & Webinar',
+    meta: '570+ commits · 20+ store releases · sole engineer',
     pitch:
-      'Zoom-class conferencing app: screen share, host controls, recording, live translation, low-latency AV on LiveKit.',
-    tags: ['Kotlin', 'Android', 'LiveKit', 'MVVM'],
+      'Zoom-class conferencing app on LiveKit — screen share, host controls, recording, live translation, scheduling.',
+    highlights: [
+      'Native iOS Picture-in-Picture: Flutter engine re-parented into AVPictureInPictureController so calls keep rendering in the background',
+      'ReplayKit screen share streamed out of its sandboxed extension over a Unix-domain socket',
+    ],
+    tags: ['Flutter', 'Kotlin', 'Swift', 'LiveKit', 'AVKit', 'ReplayKit'],
     links: [
       { label: 'Android', href: 'https://play.google.com/store/apps/details?id=com.daakia.meeting' },
       { label: 'iOS', href: TODO_LINK },
     ],
   },
   {
-    rarity: 'EPIC',
+    rarity: 'RARE',
     name: 'Konnect: Chat, Call, Conference',
     pitch:
       'Cross-platform collaboration suite — chat, events, live translation. Leading Android performance overhaul + new UI.',
@@ -284,6 +352,12 @@ export const rareDrop = {
 
 // ---------- Section 7 — Side Quests ----------
 export const sideQuests = [
+  {
+    name: 'DailyBrief',
+    line: 'Native Android practice — chained WorkManager sync (fetch → notify), Hilt assisted-injected workers, Clean Architecture.',
+    year: '2025',
+    tags: ['Kotlin', 'WorkManager', 'Hilt'],
+  },
   {
     name: 'PING (Shiraz)',
     line: 'F&B app revamp — wishlist, dine-in, QR, analytics.',

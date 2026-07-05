@@ -57,7 +57,7 @@ function LevelNode({ level, index }: { level: Level; index: number }) {
         initial={reduced ? false : { opacity: 0, x: onLeft ? -40 : 40 }}
         animate={inView ? { opacity: 1, x: 0 } : undefined}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className={`ml-14 rounded-xl border border-white/10 bg-panel/80 p-6 backdrop-blur-sm md:ml-0 ${
+        className={`ml-14 rounded-xl border border-white/10 bg-panel/80 p-5 backdrop-blur-sm md:ml-0 ${
           onLeft ? 'md:col-start-1' : 'md:col-start-2'
         }`}
       >
@@ -116,7 +116,7 @@ export default function Journey() {
   const dashOffset = useTransform(smooth, (v) => pathLen * (1 - Math.min(1, Math.max(0, v))))
 
   return (
-    <section id="journey" className="scroll-mt-20 px-4 py-24 sm:px-6">
+    <section id="journey" className="scroll-mt-20 px-4 py-16 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <SectionHeader eyebrow="CAMPAIGN MAP" title="The Journey" accent="cyan" />
 
@@ -171,7 +171,7 @@ export default function Journey() {
             </svg>
           )}
 
-          <ol ref={listRef} className="space-y-16 pb-16 md:space-y-24">
+          <ol ref={listRef} className="space-y-12 pb-12 md:space-y-16">
             {levels.map((level, i) => (
               <LevelNode key={level.number} level={level} index={i} />
             ))}

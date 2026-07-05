@@ -140,10 +140,10 @@ function LockedChips() {
 
 export default function Stats() {
   return (
-    <section id="stats" className="scroll-mt-20 px-4 py-24 sm:px-6">
+    <section id="stats" className="scroll-mt-20 px-4 py-16 sm:px-6">
       <div className="mx-auto max-w-6xl">
         <SectionHeader eyebrow="SKILL TREE" title="Character Stats" accent="violet" />
-        <div className="grid gap-10 md:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-3">
           {skillCategories.map((category) => (
             <div key={category.title}>
               <h3
@@ -152,7 +152,7 @@ export default function Stats() {
               >
                 {category.title.toUpperCase()}
               </h3>
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {category.skills.map((skill) => (
                   <XPBar key={skill.name} skill={skill} accent={category.accent} />
                 ))}

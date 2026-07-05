@@ -7,13 +7,13 @@ export default function Contact() {
   const resumeHref = `${import.meta.env.BASE_URL}resume.pdf`
 
   return (
-    <section id="contact" className="scroll-mt-20 px-4 pb-10 pt-24 sm:px-6">
+    <section id="contact" className="scroll-mt-20 px-4 pb-10 pt-16 sm:px-6">
       <motion.div
         initial={reduced ? false : { opacity: 0, y: 32 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.6 }}
-        className="mx-auto flex min-h-[60vh] max-w-3xl flex-col items-center justify-center text-center"
+        className="mx-auto flex min-h-[50vh] max-w-3xl flex-col items-center justify-center text-center"
       >
         <h2 className="gradient-text font-display text-4xl font-bold tracking-tight sm:text-6xl">
           {contact.headline}

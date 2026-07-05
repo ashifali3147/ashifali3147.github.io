@@ -6,10 +6,10 @@ export default function SideQuests() {
   const reduced = useReducedMotion()
 
   return (
-    <section id="side-quests" className="scroll-mt-20 px-4 py-20 sm:px-6">
+    <section id="side-quests" className="scroll-mt-20 px-4 py-14 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <SectionHeader eyebrow="OPTIONAL OBJECTIVES" title="Side Quests" accent="mint" />
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {sideQuests.map((quest, i) => (
             <motion.article
               key={quest.name}

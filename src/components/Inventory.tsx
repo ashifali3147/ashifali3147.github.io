@@ -25,7 +25,7 @@ export default function Inventory() {
   const reduced = useReducedMotion()
 
   return (
-    <section id="inventory" className="scroll-mt-20 px-4 py-24 sm:px-6">
+    <section id="inventory" className="scroll-mt-20 px-4 py-16 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <SectionHeader eyebrow="EQUIPPED ITEMS" title="Inventory" accent="amber" />
         <div className="grid gap-6 md:grid-cols-2">
@@ -47,8 +47,25 @@ export default function Inventory() {
                   ⚔ {project.rarity}
                 </p>
                 <h3 className="mt-2 font-display text-xl font-bold text-ink">{project.name}</h3>
+                {project.meta && (
+                  <p className="mt-1.5 font-mono text-[10px] tracking-wider text-ink-muted">
+                    {project.meta}
+                  </p>
+                )}
                 <p className="mt-3 text-sm leading-relaxed text-ink-muted">{project.pitch}</p>
-                <div className="mt-4 flex flex-wrap gap-1.5">
+                {project.highlights && (
+                  <ul className="mt-3 space-y-1.5">
+                    {project.highlights.map((h) => (
+                      <li key={h} className="flex gap-2 text-[13px] leading-relaxed text-ink-muted">
+                        <span className={`select-none ${style.label}`} aria-hidden>
+                          ▸
+                        </span>
+                        {h}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-auto flex flex-wrap gap-1.5 pt-4">
                   {project.tags.map((tag) => (
                     <span
                       key={tag}

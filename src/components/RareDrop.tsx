@@ -7,7 +7,7 @@ export default function RareDrop() {
   const hasPrLink = rareDrop.cta.href.startsWith('http')
 
   return (
-    <section id="rare-drop" className="scroll-mt-20 px-4 py-24 sm:px-6">
+    <section id="rare-drop" className="scroll-mt-20 px-4 py-16 sm:px-6">
       <motion.div
         initial={reduced ? false : { opacity: 0, scale: 0.96 }}
         whileInView={{ opacity: 1, scale: 1 }}

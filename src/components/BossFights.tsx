@@ -30,17 +30,20 @@ function BossCard({ boss }: { boss: Boss }) {
         onClick={() => setFlipped((f) => !f)}
         animate={{ rotateY: flipped ? 180 : 0 }}
         transition={reduced ? { duration: 0 } : { duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
-        className="relative block min-h-[320px] w-full text-left [transform-style:preserve-3d]"
+        className="relative block min-h-[340px] w-full text-left [transform-style:preserve-3d]"
         aria-expanded={flipped}
       >
         {/* Front */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-xl border border-accent-coral/30 bg-panel p-6 text-center [backface-visibility:hidden]">
-          <Skull className="h-10 w-10 text-accent-coral" aria-hidden />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl border border-accent-coral/30 bg-panel p-6 text-center [backface-visibility:hidden]">
+          <Skull className="h-9 w-9 text-accent-coral" aria-hidden />
           <h3 className="font-display text-2xl font-bold text-ink">{boss.name}</h3>
           <div className="font-mono text-xs tracking-widest text-ink-muted">
             DIFFICULTY: <Stars count={boss.difficulty} />
           </div>
-          <span className="mt-2 font-mono text-[10px] tracking-[0.25em] text-accent-coral">
+          <p className="max-w-[34ch] text-sm italic leading-relaxed text-ink-muted">
+            {boss.teaser}
+          </p>
+          <span className="mt-1 font-mono text-[10px] tracking-[0.25em] text-accent-coral">
             HOVER / TAP TO FIGHT
           </span>
         </div>
@@ -48,13 +51,13 @@ function BossCard({ boss }: { boss: Boss }) {
         {/* Back */}
         <div className="absolute inset-0 flex flex-col rounded-xl border border-accent-coral/50 bg-panel p-6 [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <h3 className="font-display text-lg font-bold text-accent-coral">{boss.name}</h3>
-          <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+          <p className="mt-2.5 text-[13px] leading-relaxed text-ink-muted">
             <span className="font-mono text-[10px] font-bold tracking-widest text-accent-coral">
               THE FIGHT ·{' '}
             </span>
             {boss.fight}
           </p>
-          <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+          <p className="mt-2.5 text-[13px] leading-relaxed text-ink-muted">
             <span className="font-mono text-[10px] font-bold tracking-widest text-accent-cyan">
               THE WINNING MOVE ·{' '}
             </span>
@@ -71,7 +74,7 @@ function BossCard({ boss }: { boss: Boss }) {
 
 export default function BossFights() {
   return (
-    <section id="boss-fights" className="scroll-mt-20 px-4 py-24 sm:px-6">
+    <section id="boss-fights" className="scroll-mt-20 px-4 py-16 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <SectionHeader eyebrow="LEGENDARY BUGS DEFEATED" title="Boss Fights" accent="coral" />
         <div className="grid gap-6 md:grid-cols-2">

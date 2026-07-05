@@ -25,7 +25,7 @@ export default function SectionHeader({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="mb-12 text-center"
+      className="mb-10 text-center"
     >
       <p className={`font-mono text-xs font-medium tracking-[0.3em] ${accentText[accent]}`}>
         {eyebrow}
